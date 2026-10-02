@@ -1,0 +1,312 @@
+---
+title: "KV3 koppelingen"
+date: today
+format: 
+  html: 
+    echo: false
+    message: false
+    self-contained: true
+    page-layout: full
+execute: 
+  warning: false
+  echo: false
+params:
+  n_locaties_totaal: NA
+  n_locaties_zonder_adres_voor_mergen: NA
+  n_locaties_zonder_adres_voor_norm: NA
+  n_locaties_zonder_adres_vanvege_norm: NA
+  n_skal_zonder_adres: NA
+  # locatie dfs
+  pad_df_locaties_zonder_relnr: NA
+  pad_df_locaties_met_relnr_zonder_adres: NA
+  pad_df_locaties_meerdere_relnrs: NA
+  pad_df_locaties_zonder_adres_voor_norm: NA
+  pad_df_locaties_problematisch_norm_adressen: NA
+  pad_df_locaties_zonder_skal: NA
+  # skal dfs
+  pad_df_skal_zonder_adres: NA
+---
+
+
+
+```{r}
+# n vectors obv params
+n_locaties_totaal                    <- params$n_locaties_totaal
+n_locaties_zonder_adres_voor_mergen  <- params$n_locaties_zonder_adres_voor_mergen
+n_locaties_zonder_adres_voor_norm    <- params$n_locaties_zonder_adres_voor_norm
+n_locaties_zonder_adres_vanvege_norm <- params$n_locaties_zonder_adres_vanvege_norm
+n_skal_zonder_adres                  <- params$n_skal_zonder_adres
+
+# dfs
+## locaties
+df_locaties_zonder_relnr                <- readRDS(params$pad_df_locaties_zonder_relnr)
+df_locaties_met_relnr_zonder_adres      <- readRDS(params$pad_df_locaties_met_relnr_zonder_adres)
+df_locaties_meerdere_relnrs             <- readRDS(params$pad_df_locaties_meerdere_relnrs)
+df_locaties_zonder_adres_voor_norm      <- readRDS(params$pad_df_locaties_zonder_adres_voor_norm)
+df_locaties_problematisch_norm_adressen <- readRDS(params$pad_df_locaties_problematisch_norm_adressen)
+df_locaties_zonder_skal                 <- readRDS(params$pad_df_locaties_zonder_skal)
+## skal
+df_skal_zonder_adres                     <- readRDS(params$pad_df_skal_zonder_adres)
+# n vectors obv dfs
+n_locaties_zonder_relnr           <- nrow(df_locaties_zonder_relnr)
+n_locaties_met_relnr_zonder_adres <- nrow(df_locaties_met_relnr_zonder_adres)
+n_locaties_meerdere_relnrs        <- nrow(df_locaties_meerdere_relnrs)
+n_locaties_zonder_skal            <- nrow(df_locaties_zonder_skal)
+```
+
+```{r}
+# verwijder temp bestanden
+fs::file_delete(params$pad_df_locaties_zonder_relnr)
+fs::file_delete(params$pad_df_locaties_met_relnr_zonder_adres)
+fs::file_delete(params$pad_df_locaties_meerdere_relnrs)
+fs::file_delete(params$pad_df_locaties_zonder_adres_voor_norm)
+fs::file_delete(params$pad_df_locaties_zonder_skal)
+fs::file_delete(params$pad_df_locaties_problematisch_norm_adressen)
+```
+
+
+```{r}
+library(DT)
+```
+
+Dit rapport beschrijft de resultaten van het koppelingsproces tussen de locaties van RVO en de gegevens van Skal.
+
+
+Het oorspronkelijke aantal locaties in de RVO-dataset (zowel slachthuizen als andere locaties) was `r n_locaties_totaal`, waarvan `r n_locaties_zonder_adres_voor_mergen` geen adres had. 
+
+## Samenvoegen met Verblijfsplaatsen-dataset
+
+De locaties zonder adres werden eerst samengevoegd met de Verblijfsplaatsen dataset met `ubn` als sleutel.
+
+```{r}
+#| output: asis
+
+if(n_locaties_zonder_relnr == 0) {
+  cat("Alle locaties waren gekoppeld.")
+} else {
+  glue::glue(
+    "{n_locaties_zonder_relnr} locaties konden niet worden gekoppeld omdat de `ubn` niet is gevonden in de Verblijfsplaatsen dataset. De onderstaande tabel toont de locaties die niet konden worden gematcht."
+  )
+}
+```
+
+```{r}
+
+if(n_locaties_zonder_relnr > 0) {
+  
+  datatable(
+  df_locaties_zonder_relnr,
+  rownames = FALSE,
+  filter = "top",
+  options = list(
+    dom = "ltp",
+    pageLength = 20, 
+    autoWidth = FALSE,
+    scrollX = FALSE
+  )
+) |> 
+  formatStyle(columns = 1:ncol(df_locaties_zonder_relnr), 
+              fontSize = "80%")
+  }
+```
+
+### UBNs met meerdere relatienummers
+
+```{r}
+#| output: asis
+
+if(n_locaties_meerdere_relnrs == 0) {
+  cat("Er zijn geen locaties met een UBN dat aan meerdere relatienummers kan worden gekoppeld.")
+} else {
+  glue::glue(
+    "{n_locaties_meerdere_relnrs} locaties hebben een `ubn` dat aan meerdere relatienummers gekoppeld kon worden. De onderstaande tabel toont alle combinaties van `ubn` en de bijbehorende relatienummers."
+  )
+}
+```
+
+```{r}
+if(n_locaties_meerdere_relnrs > 0) {
+  
+  datatable(
+  df_locaties_meerdere_relnrs,
+  rownames = FALSE,
+  filter = "top",
+  options = list(
+    dom = "ltp",
+    pageLength = 20, 
+    autoWidth = FALSE,
+    scrollX = FALSE
+  )
+) |> 
+  formatStyle(columns = 1:ncol(df_locaties_meerdere_relnrs), 
+              fontSize = "80%")
+}
+```
+
+## Samenvoegen met Landouwtelling-dataset
+
+De resultaten van de vorige stap werden samengevoegd met de Landbouwtelling dataset met `relnr` als sleutel. 
+
+```{r}
+#| output: asis
+
+if(n_locaties_met_relnr_zonder_adres == 0) {
+  cat("Alle locaties waren gekoppeld.")
+} else {
+  glue::glue(
+    "{n_locaties_met_relnr_zonder_adres} locaties konden niet worden gekoppeld omdat de `relnr` niet is gevonden in de Landbouwtelling dataset. De onderstaande tabel toont de locaties die niet konden worden gematcht."
+  )
+}
+```
+
+```{r}
+if(n_locaties_met_relnr_zonder_adres > 0) {
+  
+  datatable(
+  df_locaties_met_relnr_zonder_adres,
+  rownames = FALSE,
+  filter = "top",
+  options = list(
+    dom = "ltp",
+    pageLength = 20, 
+    autoWidth = FALSE,
+    scrollX = FALSE
+  )
+) |> 
+  formatStyle(columns = 1:ncol(df_locaties_met_relnr_zonder_adres), 
+              fontSize = "80%")
+}
+```
+
+## RVO locaties zonder adres
+
+Na het samenvoegproces werden alle locaties, inclusief de RVO-locaties met een adres, samengevoegd. 
+
+De volgende tabel toont alle locaties (`r n_locaties_zonder_adres_voor_norm`) waarvoor geen volledig adres (postcode + huisnummer) kon worden bepaald. Deze worden verwijderd uit verdere stappen.
+
+
+```{r}
+datatable(
+  df_locaties_zonder_adres_voor_norm,
+  rownames = FALSE,
+  filter = "top",
+  options = list(
+    dom = "ltp",
+    pageLength = 20, 
+    autoWidth = FALSE,
+    scrollX = FALSE
+  )
+) |> 
+formatStyle(columns = 1:ncol(df_locaties_zonder_adres_voor_norm), 
+            fontSize = "80%")
+```
+
+
+```{r}
+if (n_locaties_zonder_adres_voor_norm != n_locaties_zonder_relnr + n_locaties_met_relnr_zonder_adres) {
+  cat(
+    "We hebben meer locaties zonder adres gedetecteerd in deze uiteindelijke dataset in niet gelijk aan de som van . Dit had niet mogen gebeuren, dus waarschijnlijk is er iets onverwachts fout gegaan. Neem contact op met het beheer!")
+}
+```
+
+## Adres normaliseren
+
+### RVO locaties
+
+De adressen werden vervolgens genormaliseerd met behulp van het [`adresnorm` package](https://github.cbsp.nl/KERS-adressen/adresnorm). Hebben we extra adressen gemist door de normalisatiestap?
+
+```{r}
+#| output: asis
+
+if(n_locaties_zonder_adres_vanvege_norm == 0) {
+  cat("Nee.")
+} else {
+  cat(glue::glue("Ja :( We hebben {n_locaties_zonder_adres_vanvege_norm} adressen gemist. Ze worden verwijderd voordat ze verder worden verwerkt. De oringele adressen zijn:"))
+}
+```
+
+
+```{r}
+if (n_locaties_zonder_adres_vanvege_norm > 0) {
+  datatable(
+  df_locaties_problematisch_norm_adressen,
+  rownames = FALSE,
+  filter = "top",
+  options = list(
+    dom = "ltp",
+    pageLength = 20, 
+    autoWidth = FALSE,
+    scrollX = FALSE
+  )
+) |> 
+  formatStyle(columns = 1:ncol(df_locaties_problematisch_norm_adressen), 
+              fontSize = "80%")
+}
+```
+
+## Skal
+
+De Skal gegevens komen uit de Skal database. Hebben we Skal certificaten zonder adres gekregen?
+
+```{r}
+#| output: asis
+
+if(n_skal_zonder_adres == 0) {
+  cat("Nee.")
+} else {
+  cat(glue::glue("Ja :( We hebben {n_skal_zonder_adres} adressen gemist. Ze worden verwijderd voordat ze verder worden verwerkt. De oringele adressen zijn:"))
+}
+```
+
+```{r}
+if(n_skal_zonder_adres > 0) {
+
+datatable(
+  df_skal_zonder_adres,
+  rownames = FALSE,
+  filter = "top",
+  options = list(
+    dom = "ltp",
+    pageLength = 20,
+    autoWidth = FALSE,
+    scrollX = FALSE
+  )
+) |>
+  formatStyle(columns = 1:ncol(df_skal_zonder_adres),
+              fontSize = "80%")
+}
+```
+
+## Samevoegen met Skal-dataset
+
+De resultaten van de vorige stap werden samengevoegd met de Skal-dataset met postcode, huisnummer, huisletter, huisnummertoevoeging als sleutels. 
+
+```{r}
+#| output: asis
+
+if(n_locaties_zonder_skal > 0) {
+  glue::glue(
+    "{n_locaties_zonder_skal} locaties konden niet worden gekoppeld aan de Skal-dataset.\n\n
+
+Dit kan komen doordat deze locaties geen certificaat hebben of doordat het mergen via de adressen niet werkte. De volgende tabel toont de locaties die niet konden worden gekoppeld"
+  )
+}
+```
+
+```{r}
+if(n_locaties_zonder_skal > 0) {
+  datatable(
+  df_locaties_zonder_skal |> dplyr::select(postcode, huisnummer, huisletter, huisnummertoevoeging),
+  rownames = FALSE, 
+  filter = "top",
+  options = list(
+    dom = "ltp",
+    pageLength = 20, 
+    autoWidth = FALSE,
+    scrollX = FALSE
+  )
+) |> 
+  formatStyle(columns = 1:4, 
+              fontSize = "80%")
+}
+```
