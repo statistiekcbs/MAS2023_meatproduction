@@ -1,0 +1,9 @@
+rules:
+- expr: if (datum_geboorte > datum_slacht) datum_geboorte <- NA
+  name: M1
+  label: ''
+  description: ''
+  created: 2024-08-06 16:10:43.443286
+  origin: command-line
+  meta: []
+

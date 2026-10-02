@@ -1,0 +1,10 @@
+rules:
+- expr: is_unique(ubn)
+  name: 'ubn'
+  label: 'ubn uniekheid'
+  description: |
+    ubn moet uniek zijn.
+  created: 2024-08-28 16:00:00
+  meta:
+    severity: error
+

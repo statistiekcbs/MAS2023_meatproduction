@@ -1,0 +1,17 @@
+rules:
+- expr: is_unique(levens_nr)
+  name: 'levens_nr'
+  label: 'levens_nr uniekheid'
+  description: |
+    levens_nr moet uniek zijn.
+  created: 2024-07-09 16:00:00
+  meta:
+    severity: error
+- expr: '!is.na(datum_geboorte)'
+  name: 'datum_geboorte'
+  label: 'datum_geboorte aanwezigheid'
+  description: |
+    datum_geboorte moet aanwezig zijn.
+  created: 2024-07-09 16:00:00
+  meta:
+    severity: error
